@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: install dependencies
-        run: cd ./back && npm ci
+        run: cd ./back && npm i
         
       - name: run test
         run: cd ./back && npm run test
