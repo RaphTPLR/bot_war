@@ -124,6 +124,104 @@ class BotAI {
         }
     }
     
+    findAllPaths(grid, startPosition, maxDepth = 5) {
+        const allPaths = [];
+        
+        for (let depth = 1; depth <= maxDepth; depth++) {
+            console.log(`Exploration des chemins de profondeur ${depth}...`);
+            const pathsAtDepth = this.findPathsAtDepth(grid, startPosition, depth);
+            allPaths.push(...pathsAtDepth);
+        }
+        
+        console.log(`Total de ${allPaths.length} chemins trouvés`);
+        return allPaths;
+    }
+    
+    findPathsAtDepth(grid, startPosition, targetDepth) {
+        const paths = [];
+        const queue = [{ position: startPosition, path: [] }];
+        const moves = {
+            UP: { x: 0, y: -1 },
+            DOWN: { x: 0, y: 1 },
+            LEFT: { x: -1, y: 0 },
+            RIGHT: { x: 1, y: 0 }
+        };
+        
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const pos = current.position;
+            const path = current.path;
+            
+            if (path.length === targetDepth) {
+                if (grid[pos.y] && grid[pos.y][pos.x]) {
+                    const cell = grid[pos.y][pos.x];
+                    if (cell.type === 'has-point' || cell.type === 'has-trophy') {
+                        paths.push({
+                            target: { x: pos.x, y: pos.y, type: cell.type, value: this.priorities[cell.type] },
+                            path: path,
+                            length: path.length,
+                            totalValue: this.priorities[cell.type],
+                            firstMove: path[0]
+                        });
+                    }
+                }
+                continue;
+            }
+            
+            if (path.length < targetDepth) {
+                for (let direction of this.directions) {
+                    const move = moves[direction];
+                    const newX = pos.x + move.x;
+                    const newY = pos.y + move.y;
+                    
+                    if (grid[newY] && grid[newY][newX]) {
+                        const cell = grid[newY][newX];
+                        if (cell.type !== 'has-bomb' && cell.type !== 'has-bot') {
+                            queue.push({
+                                position: { x: newX, y: newY },
+                                path: [...path, direction]
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        return paths;
+    }
+    
+    getSafeDirections(grid, botPosition) {
+        const safeDirections = [];
+        const moves = {
+            UP: { x: 0, y: -1 },
+            DOWN: { x: 0, y: 1 },
+            LEFT: { x: -1, y: 0 },
+            RIGHT: { x: 1, y: 0 }
+        };
+        
+        for (let direction of this.directions) {
+            const move = moves[direction];
+            const newX = botPosition.x + move.x;
+            const newY = botPosition.y + move.y;
+            
+            if (grid[newY] && grid[newY][newX]) {
+                const cell = grid[newY][newX];
+                
+                if (cell.type !== 'has-bomb' && cell.type !== 'has-bot') {
+                    safeDirections.push(direction);
+                    console.log(`  ${direction}: ${cell.type} ${cell.content} -> SAFE`);
+                } else {
+                    console.log(`  ${direction}: ${cell.type} ${cell.content} -> DANGER`);
+                }
+            } else {
+                console.log(`  ${direction}: out-of-bounds -> DANGER`);
+            }
+        }
+        
+        return safeDirections;
+    }
+
+    
     makeDecision(gridHtml) {
         console.log('Le bot commence à réfléchir...');
         
@@ -131,44 +229,68 @@ class BotAI {
         const grid = parseResult.grid;
         const botPosition = parseResult.botPosition;
         
-        const environment = this.analyzeEnvironment(grid, botPosition);
+        const paths = this.findAllPaths(grid, botPosition, 5);
         
-        const allPossibleMoves = [];
-        
-        for (let i = 0; i < this.directions.length; i++) {
-            const direction = this.directions[i];
-            const cell = environment[direction];
-            const score = this.evaluateMove(direction, cell);
-            const action = this.determineAction(cell);
-            
-            allPossibleMoves.push({
-                direction: direction,
-                cell: cell,
-                score: score,
-                action: action
+        if (paths.length > 0) {
+            paths.sort((a, b) => {
+                if (a.target.type !== b.target.type) {
+                    return b.totalValue - a.totalValue;
+                }
+                return a.length - b.length;
             });
+            
+            console.log('Chemins trouvés (du meilleur au pire):');
+            for (let i = 0; i < Math.min(paths.length, 10); i++) {
+                const path = paths[i];
+                console.log(`  ${path.target.type} en ${path.length} coups: ${path.path.join(' -> ')} (valeur: ${path.totalValue})`);
+            }
+            
+            const bestPath = paths[0];
+            const firstMove = bestPath.firstMove;
+            
+            const moves = {
+                UP: { x: 0, y: -1 },
+                DOWN: { x: 0, y: 1 },
+                LEFT: { x: -1, y: 0 },
+                RIGHT: { x: 1, y: 0 }
+            };
+            
+            const move = moves[firstMove];
+            const newX = botPosition.x + move.x;
+            const newY = botPosition.y + move.y;
+            const targetCell = grid[newY] && grid[newY][newX] ? grid[newY][newX] : null;
+            
+            let action = 'NONE';
+            if (targetCell && (targetCell.type === 'has-point' || targetCell.type === 'has-trophy')) {
+                action = 'COLLECT';
+            }
+            
+            console.log(`Décision finale: suivre le chemin vers ${bestPath.target.type} -> premier mouvement: ${firstMove} avec action: ${action}`);
+            console.log('---');
+            
+            return {
+                move: firstMove,
+                action: action
+            };
         }
         
-        allPossibleMoves.sort(function(moveA, moveB) {
-            return moveB.score - moveA.score;
-        });
+        console.log('Aucun chemin vers une cible trouvé, analyse des directions sûres...');
+        const safeDirections = this.getSafeDirections(grid, botPosition);
         
-        // Debug
-        console.log('Voici tous les mouvements possibles (du meilleur au pire):');
-        for (let i = 0; i < allPossibleMoves.length; i++) {
-            const move = allPossibleMoves[i];
-            const roundedScore = move.score.toFixed(1);
-            console.log(`  ${move.direction}: ${move.cell.type} ${move.cell.content} (${roundedScore} points) -> ${move.action}`);
+        if (safeDirections.length > 0) {
+            const randomDirection = safeDirections[Math.floor(Math.random() * safeDirections.length)];
+            console.log(`Directions sûres: [${safeDirections.join(', ')}] -> Choix: ${randomDirection}`);
+            return {
+                move: randomDirection,
+                action: 'COLLECT'
+            };
+        } else {
+            console.log('Aucune direction sûre trouvée, rester immobile...');
+            return {
+                move: 'STAY',
+                action: 'NONE'
+            };
         }
-        
-        const bestMove = allPossibleMoves[0];
-        console.log(`Décision finale: aller vers ${bestMove.direction} et faire ${bestMove.action}`);
-        console.log('---');
-        
-        return {
-            move: bestMove.direction,
-            action: bestMove.action
-        };
     }
 }
 
