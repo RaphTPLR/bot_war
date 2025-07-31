@@ -12,6 +12,10 @@ app.get('/', (req, res) => {
 });
 
 app.post('/action', (req, res) => {
+    if (req.body.grid === undefined) {
+        return res.json({ move: 'STAY', action: 'NONE' });
+    }
+
     try {
         const receivedGrid = req.body.grid;
         console.log(receivedGrid);
@@ -32,5 +36,5 @@ app.post('/action', (req, res) => {
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
-    console.log('🤖 Bot IA prêt à analyser la vraie grille !');
+    console.log('Bot IA prêt à analyser la vraie grille !');
 });
