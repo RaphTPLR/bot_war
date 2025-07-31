@@ -6,6 +6,7 @@ const cors = require('cors');
 const BotAI = require('./BotAI');
 
 app.use(express.json());
+app.use(cors());
 
 const botAI = new BotAI();
 let lastDecision = randomMove();
