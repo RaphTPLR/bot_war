@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  server:
+    build: ./back
+    container_name: server
+    ports:
+      - "3000:3000"
+    networks:
+      - app-simple
+  front:
+    build: ./front
+    container_name: front
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - app-simple
+
+networks:
+  app-simple:
+    driver: bridge
