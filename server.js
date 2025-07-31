@@ -29,29 +29,40 @@ app.get('/visualizer', (req, res) => {
 });
 
 app.get('/action', (req, res) => {
-    res.json(lastDecision);
+    fetchGridAndDecide()
+        .then(decision => {
+            lastDecision = decision;
+            res.json(decision);
+        })
+        .catch(error => {
+            console.error('Erreur lors de la récupération de la grille:', error);
+            lastDecision = randomMove();
+            res.json(lastDecision);
+        });
 });
 
-app.post('/action', (req, res) => {
+async function fetchGridAndDecide() {
     try {
-        const receivedGrid = req.body.grid;
+        console.log('Récupération de la grille depuis https://bot.gogokodo.com/...');
         
-        if (!receivedGrid) {
-            lastDecision = randomMove();
-            return res.json(lastDecision);
+        const response = await fetch('https://bot.gogokodo.com/');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const finalDecision = botAI.makeDecision(receivedGrid);
-        lastDecision = finalDecision;
+        const html = await response.text();
+        console.log('Grille récupérée avec succès');
         
-        res.json(finalDecision);
+        const decision = botAI.makeDecision(html);
+        
+        return decision;
         
     } catch (error) {
-        console.error('Erreur lors de la prise de décision:', error);
-        lastDecision = randomMove();
-        res.json(lastDecision);
+        console.error('Erreur lors de la récupération:', error.message);
+        throw error;
     }
-});
+}
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
