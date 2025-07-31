@@ -1,6 +1,8 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const port = 3000;
+const cors = require('cors');
 const BotAI = require('./BotAI');
 
 app.use(express.json());
@@ -21,6 +23,10 @@ app.get('/', (req, res) => {
     res.send('Bienvenue sur le serveur de Bot War');
 });
 
+app.get('/visualizer', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'front', 'index.html'));
+});
+
 app.get('/action', (req, res) => {
     res.json(lastDecision);
 });
@@ -28,7 +34,6 @@ app.get('/action', (req, res) => {
 app.post('/action', (req, res) => {
     try {
         const receivedGrid = req.body.grid;
-        console.log(receivedGrid);
         
         if (!receivedGrid) {
             lastDecision = randomMove();
