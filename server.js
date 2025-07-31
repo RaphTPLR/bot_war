@@ -6,14 +6,20 @@ const BotAI = require('./BotAI');
 app.use(express.json());
 
 const botAI = new BotAI();
+let lastDecision = { move: 'STAY', action: 'NONE' };
 
 app.get('/', (req, res) => {
     res.send('Bienvenue sur le serveur de Bot War');
 });
 
+app.get('/action', (req, res) => {
+    res.json(lastDecision);
+});
+
 app.post('/action', (req, res) => {
-    if (req.body.grid === undefined) {
-        return res.json({ move: 'STAY', action: 'NONE' });
+    if (!req.body || req.body.grid === undefined) {
+        lastDecision = { move: 'STAY', action: 'NONE' };
+        return res.json(lastDecision);
     }
 
     try {
@@ -25,12 +31,14 @@ app.post('/action', (req, res) => {
         }
         
         const finalDecision = botAI.makeDecision(receivedGrid);
+        lastDecision = finalDecision;
         
         res.json(finalDecision);
         
     } catch (error) {
         console.error('Erreur lors de la prise de décision:', error);
-        res.json({ move: 'STAY', action: 'NONE' });
+        lastDecision = { move: 'STAY', action: 'NONE' };
+        res.json(lastDecision);
     }
 });
 
